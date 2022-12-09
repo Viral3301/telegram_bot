@@ -11,6 +11,12 @@ class authorization(StatesGroup):
     num = State()
     password = State()
 
+class creating_req(StatesGroup):
+    num = State()
+    problem = State()
+    requesting = State()
+
+
 
 TOKEN = ''
 storage = MemoryStorage()
@@ -99,6 +105,35 @@ async def start_command(message: types.Message):
                     await bot.send_message(client_id[0][0],message.text)
                 else:
                      await bot.send_message(message.from_user.id,"Никого нет в сети")
+        elif user_role[0][0] == 2:
+            kuznec_kb = unactive_markup.add('Я все','Создать заявку','Просмотреть мои заявки')
+            await bot.send_message(message.from_user.id,'Теперь вы активны как кузнец',reply_markup=kuznec_kb)
+            @dp.message_handler(text='Создать заявку')
+            async def start_command(message: types.Message,state: FSMContext):
+                await bot.send_message(message.from_user.id,"Введите номер станка")
+                await creating_req.num.set()
+                @dp.message_handler(state=creating_req.num)
+                async def start_command(message: types.Message,state: FSMContext):
+                    async with state.proxy() as data:
+                        data['num'] = message.text
+                        await message.reply('Что произошло?')
+                        await creating_req.next()
+                    @dp.message_handler(state=creating_req.problem)
+                    async def start_command(message: types.Message,state: FSMContext):
+                        async with state.proxy() as data:
+                            data['problem'] = message.text
+                            await message.reply('Какой специалист нужен?')
+                            await creating_req.next()
+                    @dp.message_handler(state=creating_req.requesting)
+                    async def start_command(message: types.Message,state: FSMContext):
+                        async with state.proxy() as data:
+                            data['requesting'] = message.text
+                            await bot.send_message(message.from_user.id, data['num'],data['problem'],data['requesting'])
+                            user = await cur.execute(f"Insert request(num,problem,requesting,creator_id)values({data['num']},{data['problem']},{data['requesting']},{message.from_user.id})")
+                            await db.commit()
+                            await state.finish()
+
+
         else:
             await bot.send_message(message.from_user.id,'Теперь вы активны',reply_markup=unactive_kb)
 
